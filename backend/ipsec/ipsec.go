@@ -64,6 +64,53 @@ func (o *Overlay) Start(launch bool, logFile string) {
 
 }
 
+func (o *Overlay) HealthCheck() error {
+	client, err := getClient()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	// https://github.com/strongswan/strongswan/blob/master/
+	// src/libcharon/sa/ike_sa.c#L68
+	saDownStates := map[string]struct{}{
+		"CREATED":    struct{}{},
+		"CONNECTING": struct{}{},
+	}
+
+	// https://github.com/strongswan/strongswan/blob/master/
+	// src/libcharon/sa/child_sa.c#L30
+	childSaDownStates := map[string]struct{}{
+		"CREATED":    struct{}{},
+		"ROUTED":     struct{}{},
+		"INSTALLING": struct{}{},
+		"RETRYING":   struct{}{},
+	}
+
+	sasList, err := client.ListSas("", "")
+	if err != nil {
+		return fmt.Errorf("Failed to list SAs: %v", err)
+	}
+
+	for _, sa := range sasList {
+		for _, ikeSa := range sa {
+			logrus.Debugf("SA with host %s in state %s", ikeSa.Remote_host, ikeSa.State)
+			if _, down := saDownStates[ikeSa.State]; down {
+				return fmt.Errorf("SA with host %s in state %s",
+					ikeSa.Remote_host, ikeSa.State)
+			}
+			for _, childSa := range ikeSa.Child_sas {
+				if _, down := childSaDownStates[childSa.State]; down {
+					return fmt.Errorf("Tunnel with host %s in state %s",
+						ikeSa.Remote_host, childSa.State)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func Test() error {
 	client, err := getClient()
 	if err != nil {

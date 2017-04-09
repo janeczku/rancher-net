@@ -81,6 +81,11 @@ func (o *Overlay) Start(launch bool, logFile string) {
 	}
 }
 
+func (o *Overlay) HealthCheck() error {
+	// TODO: Implement health check
+	return nil
+}
+
 // Reload does a db reload and reconfigures the configuration
 // with the new data
 func (o *Overlay) Reload() error {

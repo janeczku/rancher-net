@@ -29,7 +29,14 @@ func (s *Server) ListenAndServe(listen string) error {
 
 func (s *Server) ping(rw http.ResponseWriter, req *http.Request) {
 	logrus.Debugf("Received ping request")
-	rw.Write([]byte("OK"))
+	msg := "OK"
+	if err := s.Backend.HealthCheck(); err != nil {
+		logrus.Debugf("Health check failed: %v", err)
+		rw.WriteHeader(500)
+		msg = fmt.Sprintf("Health check failed: %v\n", err)
+	}
+
+	rw.Write([]byte(msg))
 }
 
 func (s *Server) reload(rw http.ResponseWriter, req *http.Request) {
